@@ -1,0 +1,215 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <script src="assets/vendor/supabase.js"></script>
+    <script src="assets/js/config.js?v=5.20.0"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6366f1',
+                        'primary-hover': '#4f46e5',
+                        dark: '#111827', // Нейтральный тёмно-серый (gray-900)
+                        'dark-secondary': '#1f2937', // Более светлый серый для сайдбара/шапки (gray-800)
+                        card: '#374151', // Цвет для карточек и выпадающих меню (gray-700)
+                        input: '#1f2937', // Цвет для полей ввода
+                        'bento-bg': 'rgba(99, 102, 241, 0.05)',
+                        'bento-border': 'rgba(99, 102, 241, 0.1)',
+                        'neon-primary': 'rgba(99, 102, 241, 0.5)',
+                        'neon-purple': 'rgba(139, 92, 246, 0.5)',
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.3s ease-out',
+                        'slide-in': 'slideIn 0.3s ease-out',
+                        'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
+                        'float': 'float 3s ease-in-out infinite',
+                        'shimmer': 'shimmer 2s linear infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideIn: {
+                            '0%': { opacity: '0', transform: 'translateX(-20px)' },
+                            '100%': { opacity: '1', transform: 'translateX(0)' },
+                        },
+                        pulseGlow: {
+                            '0%, 100%': { boxShadow: '0 0 20px rgba(99, 102, 241, 0.3)' },
+                            '50%': { boxShadow: '0 0 40px rgba(99, 102, 241, 0.6)' },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        shimmer: {
+                            '0%': { backgroundPosition: '-200% 0' },
+                            '100%': { backgroundPosition: '200% 0' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Админ-панель BNC</title>
+    <link rel="icon" href="assets/images/icon/icon1.png" type="image/png">
+    
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="assets/css/toast.css">
+    
+    <style>
+        @font-face {
+            font-family: 'Handjet';
+            src: url('assets/fonts/handjet.ttf') format('truetype');
+            font-weight: 100 900;
+            font-display: swap;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        .submenu { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; }
+        .submenu.open { max-height: 500px; }
+        #main-content > div { animation: fadeIn 0.3s ease-out; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.3); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.5); }
+        .sortable-ghost {
+            opacity: 0.4;
+            background: #c8ebfb;
+        }
+        .cursor-grab {
+            cursor: grab;
+        }
+
+        /* Стили для прогресс-бара */
+        .progress-bar-container { display: none; background-color: #e5e7eb; border-radius: 9999px; overflow: hidden; }
+        .dark .progress-bar-container { background-color: #374151; }
+        .progress-bar-fill { background-color: var(--primary-color, #6366f1); height: 100%; width: 0%; transition: width 0.3s ease; text-align: center; color: white; font-size: 0.75rem; line-height: 1rem; }
+        .form-input, .form-select, .form-textarea {
+            @apply w-full px-3 py-2 bg-gray-50 dark:bg-input border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-primary focus:border-primary transition-colors;
+        }
+    </style>
+</head>
+<body class="bg-[#f8fafc] dark:bg-[#0f172a] text-slate-900 dark:text-white transition-colors duration-300">
+    
+    <!-- SPA Layout Container -->
+    <div class="flex h-screen overflow-hidden">
+        
+        <!-- Sidebar Navigation -->
+        <aside id="sidebar" class="w-64 bg-white dark:bg-[#0b0f19] border-r border-slate-200 dark:border-slate-800 flex-col transition-transform duration-300 fixed inset-y-0 left-0 z-50 transform -translate-x-full md:relative md:translate-x-0 md:flex">
+            
+            <!-- Logo -->
+            <div class="p-6 border-b border-gray-200/50 dark:border-gray-800/50">
+                <div class="flex items-center gap-3 cursor-pointer group" onclick="window.router.navigate('content')">
+                    <img src="assets/images/icon/icon1.png" alt="BNC Logo" class="w-10 h-10 rounded-xl">
+                    <div>
+                        <h1 class="text-xl font-bold text-slate-900 dark:text-white font-['Handjet']">BNC ADMIN</h1>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">2025</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Navigation Menu -->
+            <nav id="main-nav" class="flex-1 overflow-y-auto py-6 px-4">
+                <!-- Menu items will be generated by JS -->
+            </nav>
+            
+            <!-- Logout -->
+            <div class="p-4 border-t border-gray-200/50 dark:border-gray-800/50">
+                <a href="index.html" target="_blank" rel="noopener noreferrer" class="group w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-300 relative overflow-hidden mb-2">
+                    <div class="absolute inset-0 bg-gradient-to-r from-primary/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div class="relative flex items-center gap-3 w-full">
+                        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-gray-500/10 to-slate-500/10 flex items-center justify-center group-hover:from-gray-500/20 group-hover:to-slate-500/20 transition-all">
+                            <i class="fas fa-house text-slate-500"></i>
+                        </div>
+                        <span class="font-medium relative">На сайт</span>
+                    </div>
+                </a>
+                <button onclick="window.router.logout()" class="group w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-500 hover:bg-gradient-to-r hover:from-red-500/10 hover:to-pink-500/10 transition-all duration-300 relative overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-r from-red-500/20 to-pink-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div class="relative flex items-center gap-3 w-full">
+                        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-red-500/10 to-pink-500/10 flex items-center justify-center group-hover:from-red-500/20 group-hover:to-pink-500/20 transition-all">
+                            <i class="fas fa-sign-out-alt text-red-500"></i>
+                        </div>
+                        <span class="font-medium relative">Выйти</span>
+                    </div>
+                </button>
+            </div>
+        </aside>
+        
+        <!-- Mobile Sidebar Overlay -->
+        <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-40 md:hidden hidden" onclick="window.router.toggleSidebar()"></div>
+        
+        <!-- Main Content Area -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            
+            <!-- Header -->
+            <header class="bg-white/80 dark:bg-[#0f172a]/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex items-center justify-between sticky top-0 z-30">
+                
+                <!-- Left: Mobile Menu Toggle + Breadcrumb -->
+                <div class="flex items-center gap-4">
+                    <button onclick="window.router.toggleSidebar()" class="md:hidden p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                        <i class="fas fa-bars text-slate-600 dark:text-slate-400"></i>
+                    </button>
+                    <div id="breadcrumb" class="text-sm text-slate-600 dark:text-slate-400"></div>
+                </div>
+                
+                <!-- Right: Theme Toggle + Profile -->
+                <div class="flex items-center gap-3">
+                    <button onclick="window.router.toggleTheme()" class="flex items-center justify-center w-10 h-10 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Переключить тему">
+                        <svg id="theme-icon-admin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-600 dark:text-gray-400">
+                            <path class="sun-path" d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path><circle class="sun-path" cx="12" cy="12" r="5"></circle>
+                            <path class="moon-path" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" style="display:none;"></path></svg>
+                    </button>
+                    <button id="add-content-header-btn" class="bg-primary hover:bg-primary-hover text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2">
+                        <i class="fas fa-plus"></i> <span class="hidden sm:inline">Добавить</span>
+                    </button>
+                </div>
+            </header>
+            
+            <!-- Main Content -->
+            <main class="flex-1 overflow-y-auto p-6">
+                <div id="main-content">
+                    <!-- Dynamic content will be loaded here -->
+                </div>
+            </main>
+            
+        </div>
+    </div>
+    
+    <!-- Password Verify Modal (пока не используется, но оставим) -->
+    <div id="passwordVerifyModal" class="fixed inset-0 bg-black/60 z-[100] hidden items-center justify-center">
+        <div class="bg-white dark:bg-card p-8 rounded-xl shadow-2xl w-full max-w-md text-center relative">
+            <button onclick="window.router.closePasswordVerifyModal(false)" class="absolute top-4 right-4 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-2xl">&times;</button>
+            <h2 class="text-2xl font-bold text-primary mb-4">Подтверждение действия</h2>
+            <p class="text-gray-600 dark:text-gray-300 mb-6">Для выполнения этого действия требуется подтверждение пароля администратора.</p>
+            <div class="mb-4 text-left">
+                <label for="verify-password-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ваш пароль:</label>
+                <input type="password" id="verify-password-input" placeholder="••••••••" class="w-full px-4 py-2 rounded-lg bg-gray-100 dark:bg-input border border-gray-300 dark:border-gray-600 focus:ring-primary focus:border-primary">
+            </div>
+            <button id="confirm-password-btn" class="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors">
+                Подтвердить
+            </button>
+            <p id="password-verify-error" class="text-red-500 text-sm mt-3 hidden">Неверный пароль</p>
+        </div>
+    </div>
+
+    <!-- Modal for Content Form -->
+    <div id="content-modal-container">
+        <!-- Form will be rendered here by JS -->
+    </div>
+
+    <!-- Router and Admin Logic -->
+    <script src="assets/js/ui.js"></script>
+    <script src="assets/js/icon-resolver.js"></script>
+    <script src="assets/js/router.js"></script>
+    <script src="assets/js/admin.js?v=1.0.8"></script>
+</body>
+</html>

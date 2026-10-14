@@ -1,0 +1,245 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход в админ-панель BNC</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/toast.css">
+    <link rel="stylesheet" href="assets/css/cookie-consent.css?v=1.0.1">
+    <style>
+        @font-face {
+            font-family: 'Handjet';
+            src: url('assets/fonts/handjet.ttf') format('truetype');
+            font-weight: 100 900;
+            font-display: swap;
+        }
+
+        :root {
+            --bg-dark: #0f172a; /* Синхронизировано с админкой */
+            --bg-card: rgba(30, 41, 59, 0.5); /* Полупрозрачный для glass-эффекта */
+            --text-main: #f8fafc;
+            --text-secondary: #94a3b8;
+            --primary-color: #6366f1;
+            --primary-hover: #4f46e5;
+            --error-color: #ef4444;
+            --border-color: rgba(148, 163, 184, 0.2);
+            --input-bg: rgba(15, 23, 42, 0.7);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden; /* Скрываем скролл, так как фон фиксирован */
+        }
+
+        .login-card {
+            background-color: var(--bg-card);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 2.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 0 60px -15px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--border-color);
+            width: 90%;
+            max-width: 24rem;
+            text-align: center;
+            border: 1px solid var(--border-color);
+            animation: fadeIn 0.8s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 {
+            font-family: 'Handjet', sans-serif;
+            margin: 0 0 2rem 0;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: color 0.3s ease;
+            letter-spacing: 1px;
+        }
+        h1:hover {
+            color: var(--primary-color);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        input[type="email"], input[type="password"] {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background-color: var(--input-bg);
+            color: var(--text-main);
+            font-size: 0.95rem;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        input[type="email"]:focus, input[type="password"]:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-login:hover {
+            background-color: var(--primary-hover);
+        }
+
+        #error-msg {
+            color: var(--error-color);
+            margin-top: 15px;
+            font-size: 0.85rem;
+            min-height: 1.2em;
+            font-weight: 500;
+        }
+        .btn-login.loading {
+            cursor: wait;
+            background-color: var(--primary-hover);
+        }
+        .btn-login.loading .spinner {
+            display: inline-block;
+            animation: spin 0.8s linear infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h1 onclick="window.location.href='index.html'" title="Вернуться на главную">BNC ADMIN</h1>
+        <form id="login-form" onsubmit="return false;">
+            <div class="form-group">
+                <input type="email" id="email" placeholder="admin@example.com" required autofocus>
+            </div>
+            <div class="form-group">
+                <input type="password" id="password" placeholder="••••••••" required>
+            </div>
+            <button type="button" id="login-btn" class="btn-login">Войти в панель</button>
+            <div id="error-msg" style="display: none;"></div>
+        </form>
+    </div>
+
+    <script src="assets/vendor/supabase.js"></script>
+    <script src="assets/js/config.js?v=5.20.0"></script>
+    <script src="assets/js/ui.js"></script>
+    <script>
+        (function() {
+            const errorMsg = document.getElementById('error-msg');
+            
+            // Дожидаемся загрузки Supabase
+            // Инициализируем локальную ссылку на клиент
+            const sbClient = window.supabaseClient;
+
+            if (!sbClient || !sbClient.auth) {
+                console.error("Supabase client not initialized. Make sure assets/js/config.js is loaded correctly.");
+                errorMsg.textContent = 'Ошибка инициализации Supabase.';
+                errorMsg.style.display = 'block';
+                if (window.showToast) window.showToast('Ошибка инициализации Supabase.', 'error');
+                return;
+            }
+
+            const loginBtn = document.getElementById('login-btn');
+            const emailInput = document.getElementById('email');
+            const passwordInput = document.getElementById('password');
+
+            const handleLogin = async () => {
+                errorMsg.style.display = 'none';
+                errorMsg.textContent = '';
+
+                if (loginBtn.classList.contains('loading')) return;
+
+                const originalText = loginBtn.textContent;
+                loginBtn.innerHTML = `<span class="spinner"></span> Вход...`;
+                loginBtn.classList.add('loading');
+
+                try {
+                    console.log("Попытка входа...");
+                    const { data, error } = await sbClient.auth.signInWithPassword({
+                        email: emailInput.value,
+                        password: passwordInput.value,
+                    });
+
+                    if (error) { 
+                        const msgText = (error.message === 'Invalid login credentials') ? 'Неверный email или пароль' : error.message;
+                        errorMsg.textContent = msgText;
+                        errorMsg.style.display = 'block';
+                        if (window.showToast) window.showToast(msgText, 'error');
+                        passwordInput.value = '';
+                        passwordInput.focus();
+                        const card = document.querySelector('.login-card');
+                        card.style.animation = 'none';
+                        void card.offsetWidth;
+                        card.style.animation = 'shake 0.4s';
+                    } else if (data.session) {
+                        const userUID = data.session.user.id;
+                        console.log("Успешная сессия! Ваш UID:", userUID);
+
+                        if (typeof CONFIG !== 'undefined' && userUID === CONFIG.ADMIN_UID) {
+                            if (window.showToast) window.showToast('Успешный вход в систему!', 'success');
+                            setTimeout(() => { window.location.href = 'admin.html'; }, 500);
+                        } else {
+                            const deniedMsg = 'Доступ запрещен: вы не являетесь администратором.';
+                            errorMsg.textContent = deniedMsg;
+                            errorMsg.style.display = 'block';
+                            if (window.showToast) window.showToast(deniedMsg, 'error');
+                            await sbClient.auth.signOut();
+                        }
+                    }
+                } catch (err) {
+                    const critMsg = 'Критическая ошибка: ' + err.message;
+                    errorMsg.textContent = critMsg;
+                    errorMsg.style.display = 'block';
+                    if (window.showToast) window.showToast(critMsg, 'error');
+                } finally {
+                    loginBtn.classList.remove('loading');
+                    loginBtn.innerHTML = originalText;
+                }
+            };
+
+            loginBtn.addEventListener('click', handleLogin);
+            passwordInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    handleLogin();
+                }
+            });
+        })();
+    </script>
+
+    <style>
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-8px); }
+            20%, 40%, 60%, 80% { transform: translateX(8px); }
+        }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .spinner { width: 1em; height: 1em; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; margin-right: 0.5em; }
+    </style>
+    <script src="assets/js/cookie-consent.js?v=1.0.1" defer></script>
+</body>
+</html>
